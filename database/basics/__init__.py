@@ -10,13 +10,13 @@ class CategorieProduitType:
 
 
 class _BrandsModel:
-    def __init__(self, brands: list[str]):
+    def __init__(self, brands: list):
         for b in brands:
             self.__setattr__(b, b)
 
 
 class _CategoriesProduitModel:
-    def __init__(self, categories: list[CategorieProduitType]):
+    def __init__(self, categories: list):
         for c in categories:
             self.__setattr__(c.description, categories)
 
