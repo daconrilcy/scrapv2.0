@@ -1,0 +1,1 @@
+{'BackgroundType': 1, 'MainProductId': 7555, 'SubProductCount': 0, 'ProductSpecItem': [{'SpecId': 1, 'Name': 'Graphics Processing'}]}
