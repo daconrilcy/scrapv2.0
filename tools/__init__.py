@@ -46,7 +46,10 @@ def compterPages_nRefTot_NRefPPage(nrefTotal: int, nrefPerPage: int):
     return totalpage
 
 
-def varToArg(var, index):
+def varToArg(var: int, index: str):
+    # transforme un nombre entier en une liste d'argument incremental
+    # formaté dict avec le nom du champ defini par la str index
+    # => Pour être exploité dans un thread
     result = []
     if isinstance(var, int):
         if not isinstance(index, str):
@@ -104,13 +107,13 @@ def isInListe(data, listToCheck):
     return False
 
 
-def isInListeDetailled(data, listToCheck):
+def isInListeDetailled(data, listToCheck: list):
     result = {"result": False, "index": None, 'keys': None}
     for i in range(len(listToCheck)):
         if isinstance(listToCheck[i], dict):
             for k in listToCheck[i].keys():
                 if data == listToCheck[i][k]:
-                    result['result']= True
+                    result['result'] = True
                     result["index"] = i
                     result['keys'] = k
                     break
@@ -145,6 +148,7 @@ def isInKeyReturnIndex(dataToFind, listToLook: list, keyName: str):
 
 
 def cutListInN(listToCut: list, ncut: int):
+    # coupe une liste en nsegment le plus equivalent possible afin d'optimiser le traitement en thread
     if (ncut == 0) | (not dataNotNull(listToCut)):
         return listToCut
 
@@ -175,7 +179,7 @@ def cutListInN(listToCut: list, ncut: int):
         for i in range(lseg):
             index = i + c*lseg
             result[c].append(listToCut[index])
-    n=0
+    n = 0
     for c in range(ncut-reste, ncut):
         result.append([])
         for i in range(lseg2):

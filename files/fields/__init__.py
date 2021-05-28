@@ -10,7 +10,7 @@ _fileFieldOfficielName = "data2.txt"
 
 def loadFieldListeOfficial():
     em = EntityManager()
-    CGs: list[CartegraphiqueEntity] = em.getAll(CartegraphiqueEntity())
+    CGs: list = em.getAll(CartegraphiqueEntity())
     cg_Fields = []
     for c in CGs[0].getAttributes():
         if c != '_id':
@@ -154,36 +154,3 @@ def LoadCorrespondOfficialListBrand(brand: str):
 
 def checkFieldsList(brand: str, fields: list):
     pass
-
-
-"""
- def checkFieldsList(self, brand: str, fieldsListe: list, exemplesData: dict):
-        if not (dataNotNull(brand)) | (dataNotNull(fieldsListe)):
-            return False
-        fieldretened = []
-        fieldNonPresents = []
-        toAddOff = 0
-        for ufn in fieldsListe:
-            isIn = isInListeDetailled(data=ufn, listToCheck=self.fields)
-            if isIn['result']:
-                if self.fields[isIn['index']]['official'] != "":
-                    fieldretened.append({"official": self.fields[isIn['index']]['official'], brand: ufn})
-            else:
-                tmp = {}
-                for e in self.enteteFieds:
-                    tmp[e] = ""
-                    if e == brand:
-                        tmp[e] = ufn
-                self.fields.append(
-                    tmp
-                )
-                toAddOff += 1
-                fieldNonPresents.append(FieldAbsent(brand=brand, fieldName=ufn, exemple=exemplesData[ufn]))
-                print("champ non présent:" + ufn)
-
-        self.fieldsNonTrouves = fieldNonPresents
-        addMessageN(len(fieldNonPresents), " fields non présents ajoutés")
-        addMessage("sauvegarde des fields")
-        self._saveListFieldOfficielle()
-        self.savelistToFile(fileName=self.fileNames.other.fieldsAbsent, datas=self.fieldsNonTrouves)
-"""

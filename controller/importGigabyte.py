@@ -1,6 +1,35 @@
 import requests
 from tools import *
 from files import ActionFile, ExempleData
+import json
+
+
+class ImageLink:
+    def __init__(self, name: str, fileFormat: str, link: str, title: str):
+        self.name = name
+        self.fileFormat = fileFormat
+        self.link = link
+        self.title = title
+
+
+class CaractProduitBrute:
+    def __init__(self, dataBrute):
+        self.id = dataBrute['MainProductId']
+        self.map = dataBrute['ProductSpecItem']
+        self.spec = dataBrute['ProductSpecList']
+
+
+class ObjClean:
+    def __init__(self, idProduct: str, nom: str, productCode: str,
+                 description: str, imagelist: list, version: str, lien: str, cat: str):
+        self.idProduct = idProduct
+        self.productCode = productCode
+        self.nom = nom
+        self.description = description
+        self.imageList = imagelist
+        self.version = version
+        self.link = lien
+        self.categorie = cat
 
 
 class ImportGigabyte:
@@ -26,6 +55,7 @@ class ImportGigabyte:
     nRequetesMax = 15
     testMaxNumber = 300
 
+    baseurl = "https://www.gigabyte.com/"
     url1 = "https://www.gigabyte.com/Ajax/Product/GetListInfoByAjax"
     url2 = "https://www.gigabyte.com/api/ProductSpec/"
 
@@ -51,7 +81,7 @@ class ImportGigabyte:
         self.liste_ref_brutes = None
 
     # Fonctions principales
-    def importDatas(self,  source: str = "web"):
+    def importDatas(self, source: str = "web"):
         importer(source, self._getlist_productfromWeb, self._getlist_productfromFile)
         importer(source, self._recupAllProductfromWeb, self._recupAllProductfromFile)
 
@@ -85,9 +115,7 @@ class ImportGigabyte:
         # recuperation de la page 1 et du nombre de pages :
         prm = "ck=" + self.param_cat + "&f=&page=1"
         reponse = requests.post(self.url1, params=prm).json()
-        perPage = int(reponse['PerPage'])
-        totalRows = int(reponse['TotalRows'])
-        totalpage = compterPages_nRefTot_NRefPPage(totalRows, perPage)
+        totalpage = int(reponse['MaximumPage'])
         addMessage(str(totalpage) + " pages à scruter")
         return totalpage
 
@@ -104,25 +132,33 @@ class ImportGigabyte:
         # epuration et organisation des liste de ref extraites.
         container = []
         excluded = []
-        self._getFieldsNameFromFirstRequest()
         for data in self.liste_ref_brutes:
             for d in data['ModelList']:
                 idreceived = str(d['MainInfo']['seq_product'])
                 if not self._isIdInException(idreceived):
+                    """
                     container.append(
                         {'id': idreceived,
                          "nomcomplet": d['LocalInfo']['name'],
                          "codeproduit": d['LocalInfo']['subtitle']
                          })
+                    """
+                    container.append(
+                        ObjClean(idProduct=idreceived,
+                                 nom=d['LocalInfo']['name'],
+                                 productCode=d['MainInfo']['url_parame_name'],
+                                 description=d['LocalInfo']['summary'],
+                                 imagelist=self._getImageList(d['ImageList']),
+                                 version=d['MainInfo']['version'],
+                                 lien=self.baseurl + d['MainInfo']['UrlCountryCodeModel'],
+                                 cat=d['MainInfo']['class_key']
+                                 )
+                    )
                 else:
                     excluded.append({"brand": self.brand, "id": idreceived, "name": d['LocalInfo']['name']})
         self.liste_ref = container
         self.dataFile.savelistToFile(self.filesGigabyte.excludedfromExtract, excluded)
         addMessage(str(len(excluded)) + " données non extraites")
-
-    def _getFieldsNameFromFirstRequest(self):
-        lsTch = self.liste_ref_brutes[0]
-        self.fields_pre_List = lsTch['ModelList']
 
     def _recupAllProductfromWeb(self):
         addMessage("recuperation des caractéristiques produits")
@@ -146,13 +182,12 @@ class ImportGigabyte:
     def _threadrecupCaractProduit(self, listdatas, container: list):
         for datas in listdatas:
             if datas:
-                idRef = datas['id']
+                #idRef = datas['id']
+                idRef = datas.idProduct
                 if idRef:
                     caract = self._recupCaractProduit(idRef)
                     if caract:
-                        container.append(
-                            {'map': caract['ProductSpecItem'], 'spec': caract['ProductSpecList']}
-                        )
+                        container.append(caract)
 
     def _recupCaractProduit(self, ref_produit: str):
         url = self.url2 + ref_produit
@@ -174,7 +209,7 @@ class ImportGigabyte:
 
     # Gestion des champs
     def _traitementFieldsinDataBrute(self):
-        self.fields_Origin = makeUnikList(self._extractFieldNameinDataBrute())
+        self.fields_Origin = self._extractFieldNameinDataBrute()
         exempledatas = self._findExempleInDataProductField()
         self.dataFile.savelistToFile(
             fileName=self.filesGigabyte.fields,
@@ -187,7 +222,7 @@ class ImportGigabyte:
             fields = data['map']
             for field in fields:
                 fieldNames.append(field["Name"])
-        return fieldNames
+        return makeUnikList(fieldNames)
 
     def _findExempleInDataProductField(self):
         fieldsExemple = {}
@@ -205,7 +240,8 @@ class ImportGigabyte:
                 namField = dc['Name']
                 fieldsExemple[namField].nFound += 1
                 if not fieldsExemple[namField].founded:
-                    if (fieldsExemple[namField].previousValue != str(dc['Description'])) & (compteExemple[namField] <= 2):
+                    if (fieldsExemple[namField].previousValue != str(dc['Description'])) & (
+                            compteExemple[namField] <= 2):
                         fieldsExemple[namField].values += str(dc['Description']) + ","
                         fieldsExemple[namField].previousValue = dc['Description']
                         compteExemple[namField] += 1
@@ -233,3 +269,85 @@ class ImportGigabyte:
     # Tools
     def _isIdInException(self, idReceived: str):
         return isInListe(idReceived, self.exceptions)
+
+    def _getImageList(self, imageListBrut: list):
+        result = []
+        for iml in imageListBrut:
+            url = self.baseurl + iml['ImageUrl']
+            newIml = ImageLink(name=iml['name'], fileFormat=iml['ext'], title=iml['title'], link=url)
+            result.append(newIml)
+
+        return result
+
+
+# tools dehors
+
+class ObjJson:
+
+    def __init__(self, objJson=None):
+        self._initialObject = objJson
+        self.type = None
+        self.gotChilds = False
+        self.nchilds = 0
+        self.childs = None
+        self.childsKeys = None
+        self.keys = None
+
+        self.putObj(objJson)
+        self.findChilds()
+
+    def putObj(self, obj):
+        self._initialObject = obj
+        if obj is not None:
+            self.type = self._defType()
+            self.gotChilds = self._isGotChilds()
+
+    def _defType(self):
+        if isinstance(self._initialObject, dict):
+            return "dict"
+        elif isinstance(self._initialObject, list):
+            return "list"
+        else:
+            return "other"
+
+    def _isGotChilds(self):
+
+        if self.type == "dict":
+            self.nchilds = len(self._initialObject.keys())
+
+        elif self.type == "list":
+            self.nchilds = len(self._initialObject)
+
+        else:
+            self.nchilds = 0
+
+        if self.nchilds > 0:
+            return True
+        else:
+            return False
+
+    def findChilds(self):
+        childs = None
+        if self.gotChilds:
+            childs = []
+            self.childsKeys = []
+            if self.type == "dict":
+                self.keys = list(self._initialObject.keys())
+                for k in self.keys:
+                    childs.append(self._initialObject[k])
+                    self.childsKeys.append({k: self._initialObject[k]})
+            if self.type == "list":
+                for c in self._initialObject:
+                    childs.append(c)
+                    if c:
+                        self.childsKeys.append({"None": c})
+
+        self.childs = childs
+
+    def getForm(self):
+        if self.type == "dict":
+            return {}
+        if self.type == "list":
+            return []
+        else:
+            return None
